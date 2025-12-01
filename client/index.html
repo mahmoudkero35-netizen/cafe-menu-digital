@@ -1,0 +1,187 @@
+﻿<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مينو الكافيه - القائمة الرقمية</title>
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/animations.css">
+    
+    <!-- External Libraries -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="images/favicon.ico">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#8B4513">
+    <meta name="description" content="قائمة الكافيه الرقمية بتصميم أنيق وتجربة مستخدم ممتعة">
+    <meta name="keywords" content="كافيه, قائمة, مشروبات, حلويات, طعام">
+    <meta name="author" content="Cafe Menu System">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-content">
+            <div class="coffee-spinner">
+                <div class="coffee-cup-loading"></div>
+                <div class="coffee-steam"></div>
+                <div class="coffee-steam"></div>
+                <div class="coffee-steam"></div>
+            </div>
+            <p class="loading-text">جاري تحميل القائمة...</p>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="menu-container" id="mainContainer">
+        <!-- Header with Logo -->
+        <header class="menu-header">
+            <div class="logo-container" id="logoContainer">
+                <i class="fas fa-coffee logo-icon"></i>
+                <div class="logo-text">
+                    <h1 class="restaurant-name" id="restaurantName">كافيه النخبة</h1>
+                    <p class="restaurant-tagline" id="restaurantTagline">أجود أنواع القهوة والحلويات</p>
+                </div>
+            </div>
+            
+            <div class="header-controls">
+                <div class="theme-controls">
+                    <button class="theme-btn" id="darkThemeBtn" title="الوضع الداكن">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                    <button class="theme-btn active" id="lightThemeBtn" title="الوضع الفاتح">
+                        <i class="fas fa-sun"></i>
+                    </button>
+                </div>
+                
+                <button class="search-btn" id="searchBtn" title="بحث">
+                    <i class="fas fa-search"></i>
+                </button>
+                
+                <button class="language-btn" id="languageBtn" title="تغيير اللغة">
+                    <span class="lang-text">EN</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Search Overlay -->
+        <div class="search-overlay" id="searchOverlay">
+            <div class="search-container">
+                <input type="text" class="search-input" id="searchInput" placeholder="ابحث عن صنف أو فئة...">
+                <button class="close-search" id="closeSearchBtn">&times;</button>
+                <div class="search-results" id="searchResults"></div>
+            </div>
+        </div>
+
+        <!-- Categories Navigation -->
+        <nav class="categories-nav" id="categoriesNav">
+            <!-- سيتم ملؤه عبر JavaScript -->
+            <div class="nav-loader">
+                <div class="loader-dot"></div>
+                <div class="loader-dot"></div>
+                <div class="loader-dot"></div>
+            </div>
+        </nav>
+
+        <!-- Menu Items Grid -->
+        <main class="menu-grid" id="menuGrid">
+            <!-- سيتم ملؤه عبر JavaScript -->
+            <div class="items-loader">
+                <div class="item-skeleton"></div>
+                <div class="item-skeleton"></div>
+                <div class="item-skeleton"></div>
+                <div class="item-skeleton"></div>
+            </div>
+        </main>
+
+        <!-- Item Modal -->
+        <div class="modal-overlay" id="itemModal">
+            <div class="modal-content">
+                <button class="close-modal" id="closeModalBtn">&times;</button>
+                <div class="modal-body" id="modalBody">
+                    <!-- سيتم ملؤه عبر JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Actions -->
+        <div class="floating-actions">
+            <button class="fab main-fab" id="mainFab">
+                <i class="fas fa-bars"></i>
+            </button>
+            <div class="fab-menu">
+                <button class="fab-item" id="scrollTopBtn" title="الانتقال للأعلى">
+                    <i class="fas fa-arrow-up"></i>
+                </button>
+                <button class="fab-item" id="refreshBtn" title="تحديث القائمة">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+                <button class="fab-item" id="shareBtn" title="مشاركة القائمة">
+                    <i class="fas fa-share-alt"></i>
+                </button>
+                <button class="fab-item" id="contactBtn" title="اتصل بنا">
+                    <i class="fas fa-phone"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="menu-footer">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3><i class="fas fa-clock"></i> أوقات العمل</h3>
+                    <p id="workingHours">كل أيام الأسبوع 8 صباحاً - 12 مساءً</p>
+                </div>
+                <div class="footer-section">
+                    <h3><i class="fas fa-map-marker-alt"></i> العنوان</h3>
+                    <p id="address">الرياض، المملكة العربية السعودية</p>
+                </div>
+                <div class="footer-section">
+                    <h3><i class="fas fa-phone"></i> اتصل بنا</h3>
+                    <p id="phone">+966 50 000 0000</p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; <span id="currentYear"></span> جميع الحقوق محفوظة - <span id="restaurantNameFooter">كافيه النخبة</span></p>
+                <p class="version">الإصدار 1.0.0</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Background Animation Elements -->
+    <div class="bg-animation">
+        <div class="coffee-cup"></div>
+        <div class="coffee-bean"></div>
+        <div class="coffee-bean"></div>
+        <div class="coffee-bean"></div>
+    </div>
+
+    <!-- Contact Modal -->
+    <div class="contact-modal" id="contactModal">
+        <div class="contact-content">
+            <button class="close-contact">&times;</button>
+            <h2><i class="fas fa-phone"></i> اتصل بنا</h2>
+            <div class="contact-info">
+                <p><i class="fas fa-phone"></i> <span id="contactPhone">+966 50 000 0000</span></p>
+                <p><i class="fas fa-envelope"></i> <span id="contactEmail">info@cafe.com</span></p>
+                <p><i class="fas fa-map-marker-alt"></i> <span id="contactAddress">الرياض، المملكة العربية السعودية</span></p>
+            </div>
+            <div class="social-links" id="socialLinks">
+                <!-- سيتم ملؤه عبر JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Files -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../shared/config/supabase-config.js"></script>
+    <script src="../shared/config/supabase-storage.js"></script>
+    <script src="../shared/services/database-service.js"></script>
+    <script src="js/main.js"></script>
+    <script src="js/animations.js"></script>
+</body>
+</html>
