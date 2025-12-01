@@ -6,8 +6,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // بيانات الدخول الافتراضية
     const ADMIN_CREDENTIALS = {
-        username: 'admin',
-        password: 'admin123'
+  
     };
     
     // التحقق من حالة تسجيل الدخول
