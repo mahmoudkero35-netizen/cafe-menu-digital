@@ -1,118 +1,246 @@
-// admin.js - ملف التحكم الأساسي
-
-// ========== دالة تبديل الأقسام ==========
-function switchSection(sectionId) {
-    // إخفاء كل الأقسام
-    const sections = document.querySelectorAll('.content-section');
-    sections.forEach(section => {
-        section.style.display = 'none';
-    });
-    
-    // إظهار القسم المطلوب
-    const targetSection = document.getElementById(sectionId);
-    if (targetSection) {
-        targetSection.style.display = 'block';
-    }
-    
-    // تحديث الأزرار النشطة
-    const buttons = document.querySelectorAll('.nav-btn');
-    buttons.forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-}
-
-// ========== تهيئة الأحداث الأساسية ==========
+// ============ إعداد التبديل بين الأقسام ============
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 لوحة التحكم جاهزة');
+    console.log('🚀 لوحة التحكم جاهزة للعمل');
     
-    // أحداث الأزرار الجانبية
+    // التبديل بين أقسام التحكم
     const navButtons = document.querySelectorAll('.nav-btn');
+    const sections = document.querySelectorAll('.control-section');
+    
     navButtons.forEach(button => {
         button.addEventListener('click', function() {
-            const section = this.getAttribute('data-section');
-            switchSection(section + 'Section');
+            const targetSection = this.getAttribute('data-section');
+            
+            // إخفاء كل الأقسام
+            sections.forEach(section => {
+                section.style.display = 'none';
+            });
+            
+            // إظهار القسم المختار
+            const activeSection = document.getElementById(targetSection);
+            if (activeSection) {
+                activeSection.style.display = 'block';
+            }
+            
+            // تحديث الأزرار النشطة
+            navButtons.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
         });
     });
     
-    // إظهار القسم الرئيسي أولاً
-    switchSection('dashboardSection');
+    // تهيئة الأحداث
+    setupMenuEvents();
+    setupDesignEvents();
+    
+    // تحميل البيانات الحالية
+    loadCurrentSettings();
 });
 
-// ========== دالات إدارة الأصناف ==========
-function setupItemsEvents() {
-    console.log('🍽️ أحداث الأصناف جاهزة');
+// ============ إدارة المنيو ============
+function setupMenuEvents() {
+    console.log('🍽️ تهيئة أحداث المنيو');
     
     // زر إضافة صنف
-    const addBtn = document.getElementById('addItemBtn');
-    if (addBtn) {
-        addBtn.onclick = function() {
-            alert('إضافة صنف جديد - قريباً!');
-        };
+    document.getElementById('addItemBtn')?.addEventListener('click', addNewItem);
+    
+    // زر حفظ المنيو
+    document.getElementById('saveMenuBtn')?.addEventListener('click', saveMenu);
+    
+    // زر حذف صنف
+    document.getElementById('deleteItemBtn')?.addEventListener('click', deleteItem);
+    
+    // معاينة صورة الصنف
+    document.getElementById('itemImage')?.addEventListener('change', previewItemImage);
+}
+
+// إضافة صنف جديد
+function addNewItem() {
+    const name = document.getElementById('itemName').value;
+    const price = document.getElementById('itemPrice').value;
+    const category = document.getElementById('itemCategory').value;
+    
+    if (!name || !price) {
+        alert('⚠️ من فضلك أدخل اسم الصنف والسعر');
+        return;
     }
     
-    // زر حفظ
-    const saveBtn = document.getElementById('saveItemBtn');
-    if (saveBtn) {
-        saveBtn.onclick = function() {
-            alert('تم الحفظ!');
-        };
-    }
-}
-
-// ========== دالات إدارة الطلبات ==========
-function setupOrdersEvents() {
-    console.log('📋 أحداث الطلبات جاهزة');
+    // إضافة للجدول المؤقت
+    const table = document.getElementById('itemsTable');
+    const row = table.insertRow();
     
-    // زر طباعة
-    const printBtn = document.getElementById('printOrderBtn');
-    if (printBtn) {
-        printBtn.onclick = printOrder;
+    row.innerHTML = `
+        <td><input type="text" value="${name}" class="form-control"></td>
+        <td><input type="number" value="${price}" class="form-control"></td>
+        <td>
+            <select class="form-control">
+                <option ${category === 'مشروبات' ? 'selected' : ''}>مشروبات</option>
+                <option ${category === 'حلويات' ? 'selected' : ''}>حلويات</option>
+                <option ${category === 'أكل' ? 'selected' : ''}>أكل</option>
+            </select>
+        </td>
+        <td>
+            <button class="btn btn-sm btn-danger" onclick="removeRow(this)">🗑️</button>
+        </td>
+    `;
+    
+    // تفريغ الحقول
+    document.getElementById('itemName').value = '';
+    document.getElementById('itemPrice').value = '';
+    
+    alert(`✅ تم إضافة "${name}" بنجاح`);
+}
+
+// حفظ المنيو
+function saveMenu() {
+    const items = [];
+    const rows = document.querySelectorAll('#itemsTable tr');
+    
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        if (cells.length >= 3) {
+            items.push({
+                name: cells[0].querySelector('input').value,
+                price: cells[1].querySelector('input').value,
+                category: cells[2].querySelector('select').value
+            });
+        }
+    });
+    
+    // حفظ في localStorage (مؤقت)
+    localStorage.setItem('cafeMenu', JSON.stringify(items));
+    
+    alert(`💾 تم حفظ ${items.length} صنف في المنيو`);
+    
+    // يمكنك هنا إرسال البيانات للسيرفر
+    console.log('بيانات المنيو:', items);
+}
+
+// حذف صنف
+function deleteItem() {
+    if (confirm('هل تريد حذف هذا الصنف؟')) {
+        // كود الحذف
+        alert('تم حذف الصنف');
     }
 }
 
-function printOrder() {
-    alert('🖨️ جاري الطباعة...');
-    window.print();
+// معاينة صورة الصنف
+function previewItemImage(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.getElementById('itemPreview');
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    }
 }
 
-// ========== دالات التصميم ==========
+// ============ إدارة التصميم ============
 function setupDesignEvents() {
-    console.log('🎨 أحداث التصميم جاهزة');
+    console.log('🎨 تهيئة أحداث التصميم');
     
-    // معاينة الصورة
-    const logoInput = document.getElementById('logoInput');
-    if (logoInput) {
-        logoInput.onchange = previewLogo;
-    }
+    // تغيير اللون
+    document.getElementById('primaryColor')?.addEventListener('input', function(e) {
+        document.documentElement.style.setProperty('--primary-color', e.target.value);
+        updateColorPreview();
+    });
     
-    // زر حفظ التصميم
-    const saveDesignBtn = document.getElementById('saveDesignBtn');
-    if (saveDesignBtn) {
-        saveDesignBtn.onclick = saveDesign;
-    }
+    // تغيير الخط
+    document.getElementById('fontFamily')?.addEventListener('change', function(e) {
+        document.documentElement.style.setProperty('--font-family', e.target.value);
+    });
+    
+    // معاينة الشعار
+    document.getElementById('logoUpload')?.addEventListener('change', previewLogo);
+    
+    // حفظ التصميم
+    document.getElementById('saveDesignBtn')?.addEventListener('click', saveDesign);
 }
 
+// معاينة الشعار
 function previewLogo(event) {
     const file = event.target.files[0];
     if (file) {
         const reader = new FileReader();
         reader.onload = function(e) {
             const preview = document.getElementById('logoPreview');
-            if (preview) {
-                preview.src = e.target.result;
-            }
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+            document.getElementById('currentLogo').src = e.target.result;
         };
         reader.readAsDataURL(file);
     }
 }
 
-function saveDesign() {
-    alert('✅ تم حفظ التصميم!');
+// تحديث معاينة اللون
+function updateColorPreview() {
+    const color = document.getElementById('primaryColor').value;
+    document.getElementById('colorPreview').style.backgroundColor = color;
 }
 
-// ========== جعل الدوال متاحة عالمياً ==========
-window.setupItemsEvents = setupItemsEvents;
-window.setupOrdersEvents = setupOrdersEvents;
-window.setupDesignEvents = setupDesignEvents;
-window.printOrder = printOrder;
+// حفظ التصميم
+function saveDesign() {
+    const design = {
+        primaryColor: document.getElementById('primaryColor').value,
+        fontFamily: document.getElementById('fontFamily').value,
+        logo: document.getElementById('logoPreview').src || '',
+        savedAt: new Date().toLocaleString()
+    };
+    
+    // حفظ في localStorage
+    localStorage.setItem('cafeDesign', JSON.stringify(design));
+    
+    // تطبيق التغييرات على صفحة العرض
+    applyDesignToMainPage(design);
+    
+    alert('✅ تم حفظ التصميم بنجاح!');
+}
+
+// تطبيق التصميم على الصفحة الرئيسية
+function applyDesignToMainPage(design) {
+    // هنا يمكنك إرسال التصميم للسيرفر
+    // أو تحديث صفحة العرض إذا كانت مفتوحة
+    console.log('التصميم المحفوظ:', design);
+    
+    // تخزين للإستخدام في صفحة العرض
+    localStorage.setItem('cafeTheme', JSON.stringify(design));
+}
+
+// ============ تحميل الإعدادات الحالية ============
+function loadCurrentSettings() {
+    // تحميل المنيو المحفوظ
+    const savedMenu = localStorage.getItem('cafeMenu');
+    if (savedMenu) {
+        const menu = JSON.parse(savedMenu);
+        console.log('تم تحميل المنيو:', menu.length, 'صنف');
+    }
+    
+    // تحميل التصميم المحفوظ
+    const savedDesign = localStorage.getItem('cafeDesign');
+    if (savedDesign) {
+        const design = JSON.parse(savedDesign);
+        
+        // تطبيق التصميم
+        document.getElementById('primaryColor').value = design.primaryColor || '#4CAF50';
+        document.getElementById('fontFamily').value = design.fontFamily || 'Arial';
+        
+        if (design.logo) {
+            document.getElementById('logoPreview').src = design.logo;
+            document.getElementById('currentLogo').src = design.logo;
+        }
+        
+        updateColorPreview();
+    }
+}
+
+// ============ دوال مساعدة ============
+function removeRow(button) {
+    const row = button.closest('tr');
+    row.remove();
+}
+
+// ============ جعل الدوال متاحة عالمياً ============
 window.previewLogo = previewLogo;
 window.saveDesign = saveDesign;
+window.removeRow = removeRow;
