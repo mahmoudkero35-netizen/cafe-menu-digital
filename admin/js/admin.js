@@ -1,17 +1,9 @@
 // ============================================
-// ملف لوحة التحكم الرئيسي - الإصدار النهائي
+// ملف لوحة التحكم الرئيسي - الإصدار النهائي المصحح
 // ============================================
 
-// تعريف الكلاس الرئيسي
-class AdminPanel {
-    constructor() {
-        console.log('🚀 إنشاء نسخة جديدة من لوحة التحكم');
-        this.currentUser = null;
-        this.currentSection = 'dashboard';
-        this.isSidebarCollapsed = false;
-    }
 // ============================================
-// مساعدات تهيئة التطبيق
+// دوال مساعدة عامة
 // ============================================
 
 // دالة الانتظار حتى تكون الخدمات جاهزة
@@ -50,12 +42,12 @@ async function waitForServices() {
     throw new Error('انتهت المهلة في انتظار الخدمات');
 }
 
-// ثم عدل دالة initializeAdminPanel:
+// دالة تهيئة لوحة التحكم
 async function initializeAdminPanel() {
     try {
         console.log('🚀 تهيئة لوحة التحكم...');
         
-        // التحقق مما إذا كنا في صفحة الإدارة
+        // التحقق من أننا في صفحة الإدارة
         if (!document.getElementById('adminContainer') && !document.getElementById('loginContainer')) {
             console.log('⚠️ هذه ليست صفحة الإدارة');
             return null;
@@ -99,6 +91,19 @@ async function initializeAdminPanel() {
         return null;
     }
 }
+
+// ============================================
+// تعريف الكلاس الرئيسي
+// ============================================
+
+class AdminPanel {
+    constructor() {
+        console.log('🚀 إنشاء نسخة جديدة من لوحة التحكم');
+        this.currentUser = null;
+        this.currentSection = 'dashboard';
+        this.isSidebarCollapsed = false;
+    }
+
     // دالة التهيئة الرئيسية
     async init() {
         try {
@@ -1015,73 +1020,20 @@ async function initializeAdminPanel() {
 }
 
 // ============================================
-// تهيئة التطبيق
+// تهيئة التطبيق عند تحميل الصفحة
 // ============================================
-
-// دالة تهيئة لوحة التحكم
-function initializeAdminPanel() {
-    try {
-        console.log('🚀 تهيئة لوحة التحكم...');
-        
-        // التحقق من أننا في صفحة الإدارة
-        if (!document.getElementById('adminContainer') && !document.getElementById('loginContainer')) {
-            console.log('⚠️ هذه ليست صفحة الإدارة');
-            return null;
-        }
-        
-        // انتظار تحميل الخدمات
-        if (!window.supabaseClient || !window.databaseService) {
-            console.warn('⚠️ الخدمات غير جاهزة، جاري المحاولة مرة أخرى...');
-            
-            setTimeout(() => {
-                if (!window.supabaseClient || !window.databaseService) {
-                    console.error('❌ فشل تحميل الخدمات المطلوبة');
-                    alert('❌ خطأ: الخدمات المطلوبة غير متوفرة. يرجى تحديث الصفحة.');
-                    return;
-                }
-                startAdminPanel();
-            }, 2000);
-            
-            return;
-        }
-        
-        startAdminPanel();
-        
-    } catch (error) {
-        console.error('❌ خطأ في تهيئة لوحة التحكم:', error);
-        alert(`❌ خطأ في تهيئة لوحة التحكم: ${error.message}`);
-    }
-}
-
-// بدء تشغيل لوحة التحكم
-function startAdminPanel() {
-    try {
-        console.log('🚀 بدء تشغيل لوحة التحكم...');
-        
-        // إنشاء نسخة من لوحة التحكم
-        window.adminPanel = new AdminPanel();
-        
-        // بدء التهيئة
-        window.adminPanel.init();
-        
-        console.log('✅ تم بدء لوحة التحكم بنجاح');
-        
-    } catch (error) {
-        console.error('❌ خطأ في بدء لوحة التحكم:', error);
-        alert(`❌ خطأ في بدء لوحة التحكم: ${error.message}`);
-    }
-}
 
 // تهيئة لوحة التحكم عند تحميل الصفحة
 document.addEventListener('DOMContentLoaded', function() {
     console.log('📄 تم تحميل DOM، جاري تهيئة لوحة التحكم...');
     
     // تأخير بسيط لضمان تحميل جميع السكريبتات
-    setTimeout(initializeAdminPanel, 500);
+    setTimeout(initializeAdminPanel, 1000);
 });
 
 // تصدير للاستخدام العام
 window.initializeAdminPanel = initializeAdminPanel;
+window.AdminPanel = AdminPanel;
 
 // تصدير لتوافق الوحدات
 if (typeof module !== 'undefined' && module.exports) {
