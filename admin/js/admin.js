@@ -10,7 +10,95 @@ class AdminPanel {
         this.currentSection = 'dashboard';
         this.isSidebarCollapsed = false;
     }
+// ============================================
+// مساعدات تهيئة التطبيق
+// ============================================
 
+// دالة الانتظار حتى تكون الخدمات جاهزة
+async function waitForServices() {
+    console.log('⏳ في انتظار تحميل الخدمات...');
+    
+    const services = [
+        { name: 'supabaseClient', obj: window.supabaseClient },
+        { name: 'databaseService', obj: window.databaseService },
+        { name: 'supabaseStorage', obj: window.supabaseStorage }
+    ];
+    
+    let attempts = 0;
+    const maxAttempts = 30; // 15 ثانية كحد أقصى
+    
+    while (attempts < maxAttempts) {
+        const readyServices = services.filter(s => s.obj).length;
+        const totalServices = services.length;
+        
+        console.log(`📊 حالة الخدمات: ${readyServices}/${totalServices} (المحاولة ${attempts + 1}/${maxAttempts})`);
+        
+        if (readyServices === totalServices) {
+            console.log('✅ جميع الخدمات جاهزة');
+            return true;
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
+        attempts++;
+        
+        // تحديث مراجع الخدمات
+        services[0].obj = window.supabaseClient;
+        services[1].obj = window.databaseService;
+        services[2].obj = window.supabaseStorage;
+    }
+    
+    throw new Error('انتهت المهلة في انتظار الخدمات');
+}
+
+// ثم عدل دالة initializeAdminPanel:
+async function initializeAdminPanel() {
+    try {
+        console.log('🚀 تهيئة لوحة التحكم...');
+        
+        // التحقق مما إذا كنا في صفحة الإدارة
+        if (!document.getElementById('adminContainer') && !document.getElementById('loginContainer')) {
+            console.log('⚠️ هذه ليست صفحة الإدارة');
+            return null;
+        }
+        
+        // الانتظار حتى تكون الخدمات جاهزة
+        await waitForServices();
+        
+        console.log('✅ جميع الخدمات جاهزة، بدء تشغيل لوحة التحكم...');
+        
+        // إنشاء وبدء تشغيل لوحة التحكم
+        window.adminPanel = new AdminPanel();
+        await window.adminPanel.init();
+        
+        console.log('✅ تم تشغيل لوحة التحكم بنجاح');
+        
+        return window.adminPanel;
+        
+    } catch (error) {
+        console.error('❌ خطأ في تهيئة لوحة التحكم:', error);
+        
+        // عرض رسالة خطأ للمستخدم
+        const errorMessage = `فشل تحميل لوحة التحكم: ${error.message}`;
+        
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'error',
+                title: 'خطأ في التحميل',
+                text: errorMessage,
+                confirmButtonText: 'إعادة تحميل',
+                allowOutsideClick: false
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    location.reload();
+                }
+            });
+        } else {
+            alert(errorMessage);
+        }
+        
+        return null;
+    }
+}
     // دالة التهيئة الرئيسية
     async init() {
         try {
