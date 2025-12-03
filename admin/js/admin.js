@@ -1,96 +1,83 @@
 // ============================================
-// ملف لوحة التحكم الرئيسي - الإصدار النهائي المصحح
+// ملف لوحة التحكم الرئيسي - الإصدار المصحح
 // ============================================
 
 // ============================================
-// دوال مساعدة عامة
+// إدارة حالة الخدمات
 // ============================================
 
-// دالة الانتظار حتى تكون الخدمات جاهزة
-async function waitForServices() {
-    console.log('⏳ في انتظار تحميل الخدمات...');
+// كائن لتتبع حالة الخدمات
+const ServiceManager = {
+    services: {
+        supabaseClient: false,
+        databaseService: false,
+        supabaseStorage: false
+    },
     
-    const services = [
-        { name: 'supabaseClient', obj: window.supabaseClient },
-        { name: 'databaseService', obj: window.databaseService },
-        { name: 'supabaseStorage', obj: window.supabaseStorage }
-    ];
-    
-    let attempts = 0;
-    const maxAttempts = 30; // 15 ثانية كحد أقصى
-    
-    while (attempts < maxAttempts) {
-        const readyServices = services.filter(s => s.obj).length;
-        const totalServices = services.length;
+    // تسجيل خدمة كجاهزة
+    markServiceReady(serviceName) {
+        console.log(`✅ ${serviceName} جاهز`);
+        this.services[serviceName] = true;
         
-        console.log(`📊 حالة الخدمات: ${readyServices}/${totalServices} (المحاولة ${attempts + 1}/${maxAttempts})`);
-        
-        if (readyServices === totalServices) {
-            console.log('✅ جميع الخدمات جاهزة');
-            return true;
+        // التحقق مما إذا كانت جميع الخدمات جاهزة
+        if (this.allServicesReady()) {
+            console.log('🎉 جميع الخدمات جاهزة!');
+            window.dispatchEvent(new CustomEvent('allServicesReady'));
         }
-        
-        await new Promise(resolve => setTimeout(resolve, 500));
-        attempts++;
-        
-        // تحديث مراجع الخدمات
-        services[0].obj = window.supabaseClient;
-        services[1].obj = window.databaseService;
-        services[2].obj = window.supabaseStorage;
+    },
+    
+    // التحقق مما إذا كانت جميع الخدمات جاهزة
+    allServicesReady() {
+        return Object.values(this.services).every(status => status === true);
+    },
+    
+    // الانتظار حتى تكون جميع الخدمات جاهزة
+    async waitForAllServices(timeout = 10000) {
+        return new Promise((resolve, reject) => {
+            if (this.allServicesReady()) {
+                resolve();
+                return;
+            }
+            
+            const timer = setTimeout(() => {
+                reject(new Error(`انتهت المهلة في انتظار الخدمات (${timeout}ms)`));
+            }, timeout);
+            
+            window.addEventListener('allServicesReady', () => {
+                clearTimeout(timer);
+                resolve();
+            }, { once: true });
+        });
     }
-    
-    throw new Error('انتهت المهلة في انتظار الخدمات');
-}
+};
 
-// دالة تهيئة لوحة التحكم
-async function initializeAdminPanel() {
-    try {
-        console.log('🚀 تهيئة لوحة التحكم...');
-        
-        // التحقق من أننا في صفحة الإدارة
-        if (!document.getElementById('adminContainer') && !document.getElementById('loginContainer')) {
-            console.log('⚠️ هذه ليست صفحة الإدارة');
-            return null;
-        }
-        
-        // الانتظار حتى تكون الخدمات جاهزة
-        await waitForServices();
-        
-        console.log('✅ جميع الخدمات جاهزة، بدء تشغيل لوحة التحكم...');
-        
-        // إنشاء وبدء تشغيل لوحة التحكم
-        window.adminPanel = new AdminPanel();
-        await window.adminPanel.init();
-        
-        console.log('✅ تم تشغيل لوحة التحكم بنجاح');
-        
-        return window.adminPanel;
-        
-    } catch (error) {
-        console.error('❌ خطأ في تهيئة لوحة التحكم:', error);
-        
-        // عرض رسالة خطأ للمستخدم
-        const errorMessage = `فشل تحميل لوحة التحكم: ${error.message}`;
-        
-        if (typeof Swal !== 'undefined') {
-            Swal.fire({
-                icon: 'error',
-                title: 'خطأ في التحميل',
-                text: errorMessage,
-                confirmButtonText: 'إعادة تحميل',
-                allowOutsideClick: false
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    location.reload();
-                }
-            });
-        } else {
-            alert(errorMessage);
-        }
-        
-        return null;
+// ============================================
+// مراقبة الخدمات
+// ============================================
+
+// مراقبة supabaseClient
+const supabaseCheck = setInterval(() => {
+    if (window.supabaseClient && !ServiceManager.services.supabaseClient) {
+        ServiceManager.markServiceReady('supabaseClient');
+        clearInterval(supabaseCheck);
     }
-}
+}, 500);
+
+// مراقبة databaseService
+const databaseCheck = setInterval(() => {
+    if (window.databaseService && window.databaseService.isInitialized && !ServiceManager.services.databaseService) {
+        ServiceManager.markServiceReady('databaseService');
+        clearInterval(databaseCheck);
+    }
+}, 500);
+
+// مراقبة supabaseStorage
+const storageCheck = setInterval(() => {
+    if (window.supabaseStorage && !ServiceManager.services.supabaseStorage) {
+        ServiceManager.markServiceReady('supabaseStorage');
+        clearInterval(storageCheck);
+    }
+}, 500);
 
 // ============================================
 // تعريف الكلاس الرئيسي
@@ -102,17 +89,18 @@ class AdminPanel {
         this.currentUser = null;
         this.currentSection = 'dashboard';
         this.isSidebarCollapsed = false;
+        this.isInitialized = false;
     }
-
+    
     // دالة التهيئة الرئيسية
     async init() {
         try {
-            console.log('🔧 بدء تهيئة لوحة التحكم...');
-            
-            // التحقق من توفر الخدمات
-            if (!this.checkRequiredServices()) {
+            if (this.isInitialized) {
+                console.log('⚠️ لوحة التحكم مهيئة بالفعل');
                 return;
             }
+            
+            console.log('🔧 بدء تهيئة لوحة التحكم...');
             
             // التحقق من حالة تسجيل الدخول
             const isLoggedIn = await this.checkLoginStatus();
@@ -123,32 +111,13 @@ class AdminPanel {
                 this.showLoginPanel();
             }
             
+            this.isInitialized = true;
             console.log('✅ تم تهيئة لوحة التحكم بنجاح');
             
         } catch (error) {
             console.error('❌ خطأ في تهيئة لوحة التحكم:', error);
-            this.showMessage('خطأ', `فشل تهيئة لوحة التحكم: ${error.message}`, 'error');
+            this.showError(`فشل تهيئة لوحة التحكم: ${error.message}`);
         }
-    }
-    
-    // التحقق من توفر الخدمات المطلوبة
-    checkRequiredServices() {
-        const required = [
-            { name: 'supabaseClient', obj: window.supabaseClient },
-            { name: 'databaseService', obj: window.databaseService },
-            { name: 'supabaseStorage', obj: window.supabaseStorage }
-        ];
-        
-        const missing = required.filter(service => !service.obj);
-        
-        if (missing.length > 0) {
-            const missingNames = missing.map(m => m.name).join(', ');
-            console.error(`❌ خدمات مفقودة: ${missingNames}`);
-            this.showMessage('خطأ', `الخدمات التالية غير متوفرة: ${missingNames}`, 'error');
-            return false;
-        }
-        
-        return true;
     }
     
     // التحقق من حالة تسجيل الدخول
@@ -159,12 +128,14 @@ class AdminPanel {
             const token = localStorage.getItem('adminToken');
             
             if (!userData || !token) {
+                console.log('👤 لا يوجد مستخدم مسجل');
                 return false;
             }
             
             // محاولة تحليل البيانات
             try {
                 this.currentUser = JSON.parse(userData);
+                console.log('👤 تم العثور على مستخدم مسجل:', this.currentUser.full_name_ar);
                 return true;
             } catch (e) {
                 console.warn('❌ بيانات المستخدم غير صالحة:', e);
@@ -192,6 +163,8 @@ class AdminPanel {
         if (adminContainer) {
             adminContainer.style.display = 'none';
         }
+        
+        console.log('👤 إظهار لوحة تسجيل الدخول');
     }
     
     // إعداد أحداث تسجيل الدخول
@@ -199,7 +172,10 @@ class AdminPanel {
         const loginForm = document.getElementById('loginForm');
         const showPasswordBtn = document.getElementById('showPasswordBtn');
         
-        if (!loginForm) return;
+        if (!loginForm) {
+            console.error('❌ لم يتم العثور على نموذج تسجيل الدخول');
+            return;
+        }
         
         // إعادة تعيين النموذج
         loginForm.reset();
@@ -227,8 +203,13 @@ class AdminPanel {
         });
         
         // ملء بيانات الاختبار
-        document.getElementById('username').value = 'admin';
-        document.getElementById('password').value = 'admin123';
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        
+        if (usernameInput) usernameInput.value = 'admin';
+        if (passwordInput) passwordInput.value = 'admin123';
+        
+        console.log('✅ تم إعداد أحداث تسجيل الدخول');
     }
     
     // معالجة تسجيل الدخول
@@ -239,7 +220,7 @@ class AdminPanel {
             const rememberMe = document.getElementById('rememberMe')?.checked || false;
             
             if (!username || !password) {
-                this.showMessage('تحذير', 'يرجى إدخال اسم المستخدم وكلمة المرور', 'warning');
+                this.showError('يرجى إدخال اسم المستخدم وكلمة المرور');
                 return;
             }
             
@@ -275,7 +256,7 @@ class AdminPanel {
             this.hideLoading();
             
             // إظهار رسالة النجاح
-            this.showMessage('نجاح', 'تم تسجيل الدخول بنجاح!', 'success');
+            this.showSuccess('تم تسجيل الدخول بنجاح!');
             
             // تحميل لوحة التحكم
             await this.loadAdminPanel();
@@ -283,7 +264,7 @@ class AdminPanel {
         } catch (error) {
             console.error('❌ خطأ في تسجيل الدخول:', error);
             this.hideLoading();
-            this.showMessage('خطأ', 'فشل تسجيل الدخول. يرجى المحاولة مرة أخرى.', 'error');
+            this.showError('فشل تسجيل الدخول. يرجى المحاولة مرة أخرى.');
         }
     }
     
@@ -295,9 +276,6 @@ class AdminPanel {
             // إخفاء تسجيل الدخول
             const loginContainer = document.getElementById('loginContainer');
             if (loginContainer) loginContainer.style.display = 'none';
-            
-            // إنشاء واجهة لوحة التحكم
-            await this.createAdminInterface();
             
             // إظهار لوحة التحكم
             const adminContainer = document.getElementById('adminContainer');
@@ -316,12 +294,16 @@ class AdminPanel {
             
         } catch (error) {
             console.error('❌ خطأ في تحميل لوحة التحكم:', error);
-            this.showMessage('خطأ', `فشل تحميل لوحة التحكم: ${error.message}`, 'error');
+            this.showError(`فشل تحميل لوحة التحكم: ${error.message}`);
         }
     }
     
     // إنشاء HTML لوحة التحكم
     getAdminHTML() {
+        const userInitial = this.currentUser?.full_name_ar?.charAt(0) || 'م';
+        const userName = this.currentUser?.full_name_ar || 'مدير النظام';
+        const userRole = this.getRoleName(this.currentUser?.role);
+        
         return `
             <!-- الهيدر -->
             <header class="admin-header">
@@ -339,11 +321,11 @@ class AdminPanel {
                     <div class="header-right">
                         <div class="user-info" id="userInfo">
                             <div class="user-avatar">
-                                ${this.currentUser?.full_name_ar?.charAt(0) || 'م'}
+                                ${userInitial}
                             </div>
                             <div class="user-details">
-                                <span class="user-name">${this.currentUser?.full_name_ar || 'مدير النظام'}</span>
-                                <span class="user-role">${this.getRoleName(this.currentUser?.role)}</span>
+                                <span class="user-name">${userName}</span>
+                                <span class="user-role">${userRole}</span>
                             </div>
                             <i class="fas fa-chevron-down"></i>
                         </div>
@@ -479,7 +461,7 @@ class AdminPanel {
                             <i class="fas fa-coffee"></i>
                         </div>
                         <div class="welcome-content">
-                            <h2>مرحباً ${this.currentUser?.full_name_ar || 'مدير النظام'}!</h2>
+                            <h2>مرحباً ${userName}!</h2>
                             <p>يمكنك من خلال هذه اللوحة إدارة جميع جوانب تطبيق مينو الكافيه</p>
                             <div class="welcome-actions">
                                 <button class="btn btn-primary" id="quickAddBtn">
@@ -534,6 +516,8 @@ class AdminPanel {
     
     // إعداد أحداث لوحة التحكم
     setupAdminEvents() {
+        console.log('🔧 إعداد أحداث لوحة التحكم...');
+        
         // تبديل القائمة الجانبية
         const menuToggle = document.getElementById('menuToggle');
         if (menuToggle) {
@@ -595,6 +579,8 @@ class AdminPanel {
         if (viewStatsBtn) {
             viewStatsBtn.addEventListener('click', () => this.showSection('dashboard'));
         }
+        
+        console.log('✅ تم إعداد أحداث لوحة التحكم');
     }
     
     // تحميل البيانات الأولية
@@ -628,18 +614,20 @@ class AdminPanel {
             
             // تحديث واجهة المستخدم
             const statCards = document.querySelectorAll('.stat-card');
-            statCards[0].querySelector('.stat-number').textContent = stats.totalItems;
-            statCards[1].querySelector('.stat-number').textContent = stats.totalCategories;
-            statCards[2].querySelector('.stat-number').textContent = stats.popularItems;
-            statCards[3].querySelector('.stat-number').textContent = stats.todayOrders;
-            
-            // تحديث النصوص
-            statCards.forEach(card => {
-                const changeText = card.querySelector('.stat-change span');
-                if (changeText) {
-                    changeText.textContent = 'محدث الآن';
-                }
-            });
+            if (statCards.length >= 4) {
+                statCards[0].querySelector('.stat-number').textContent = stats.totalItems;
+                statCards[1].querySelector('.stat-number').textContent = stats.totalCategories;
+                statCards[2].querySelector('.stat-number').textContent = stats.popularItems;
+                statCards[3].querySelector('.stat-number').textContent = stats.todayOrders;
+                
+                // تحديث النصوص
+                statCards.forEach(card => {
+                    const changeText = card.querySelector('.stat-change span');
+                    if (changeText) {
+                        changeText.textContent = 'محدث الآن';
+                    }
+                });
+            }
             
         } catch (error) {
             console.error('❌ خطأ في تحديث الإحصائيات:', error);
@@ -650,237 +638,12 @@ class AdminPanel {
     async updateBadges() {
         try {
             const badges = document.querySelectorAll('.menu-badge');
-            badges[0].textContent = '24'; // الأصناف
-            badges[1].textContent = '6';  // الفئات
+            if (badges.length >= 2) {
+                badges[0].textContent = '24'; // الأصناف
+                badges[1].textContent = '6';  // الفئات
+            }
         } catch (error) {
             console.error('❌ خطأ في تحديث العدادات:', error);
-        }
-    }
-    
-    // إظهار قسم معين
-    async showSection(section) {
-        try {
-            console.log(`📂 جاري تحميل القسم: ${section}`);
-            
-            // تحديث القائمة النشطة
-            document.querySelectorAll('.menu-item').forEach(item => {
-                item.classList.remove('active');
-                if (item.dataset.section === section) {
-                    item.classList.add('active');
-                }
-            });
-            
-            // تحميل محتوى القسم
-            const content = document.getElementById('adminContent');
-            
-            // إظهار مؤشر التحميل
-            this.showLoading(`جاري تحميل ${this.getSectionName(section)}...`);
-            
-            // محاكاة تحميل البيانات
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            // إخفاء مؤشر التحميل
-            this.hideLoading();
-            
-            // تحديث المحتوى
-            content.innerHTML = this.getSectionContent(section);
-            
-            // إعداد أحداث القسم الجديد
-            this.setupSectionEvents(section);
-            
-            console.log(`✅ تم تحميل القسم: ${section}`);
-            
-        } catch (error) {
-            console.error(`❌ خطأ في تحميل القسم ${section}:`, error);
-            this.hideLoading();
-            this.showMessage('خطأ', `فشل تحميل القسم: ${section}`, 'error');
-        }
-    }
-    
-    // الحصول على اسم القسم
-    getSectionName(section) {
-        const sections = {
-            dashboard: 'لوحة التحكم',
-            items: 'إدارة الأصناف',
-            categories: 'إدارة الفئات',
-            design: 'التصميم',
-            settings: 'الإعدادات'
-        };
-        return sections[section] || section;
-    }
-    
-    // الحصول على محتوى القسم
-    getSectionContent(section) {
-        switch (section) {
-            case 'dashboard':
-                return this.getDashboardContent();
-            case 'items':
-                return this.getItemsContent();
-            case 'categories':
-                return this.getCategoriesContent();
-            case 'design':
-                return this.getDesignContent();
-            case 'settings':
-                return this.getSettingsContent();
-            default:
-                return `<div class="alert alert-warning">القسم غير متوفر حالياً</div>`;
-        }
-    }
-    
-    // محتوى لوحة التحكم
-    getDashboardContent() {
-        return `
-            <div class="content-header">
-                <h1><i class="fas fa-tachometer-alt"></i> لوحة التحكم</h1>
-                <div class="header-actions">
-                    <button class="btn btn-primary" id="refreshDashboardBtn">
-                        <i class="fas fa-sync"></i> تحديث
-                    </button>
-                </div>
-            </div>
-            
-            <div class="dashboard-grid">
-                <div class="dashboard-card">
-                    <h3><i class="fas fa-chart-bar"></i> نظرة عامة</h3>
-                    <p>مرحباً بك في لوحة تحكم نظام مينو الكافيه. استخدم القائمة الجانبية للتنقل بين الميزات.</p>
-                </div>
-                
-                <div class="dashboard-card">
-                    <h3><i class="fas fa-bell"></i> إشعارات مهمة</h3>
-                    <ul class="notifications-list">
-                        <li>✓ النظام يعمل بشكل طبيعي</li>
-                        <li>✓ جميع الخدمات متاحة</li>
-                        <li>✓ قاعدة البيانات متصلة</li>
-                        <li>✓ التخزين السحابي نشط</li>
-                    </ul>
-                </div>
-                
-                <div class="dashboard-card">
-                    <h3><i class="fas fa-lightbulb"></i> نصائح سريعة</h3>
-                    <ul class="tips-list">
-                        <li>• يمكنك إضافة أصناف جديدة من قسم "إدارة الأصناف"</li>
-                        <li>• قم بتنظيم الأصناف في فئات من قسم "إدارة الفئات"</li>
-                        <li>• يمكنك تخصيص التصميم من قسم "التصميم"</li>
-                        <li>• راجع الإعدادات العامة من قسم "الإعدادات"</li>
-                    </ul>
-                </div>
-            </div>
-        `;
-    }
-    
-    // محتوى إدارة الأصناف
-    getItemsContent() {
-        return `
-            <div class="content-header">
-                <h1><i class="fas fa-utensils"></i> إدارة الأصناف</h1>
-                <div class="header-actions">
-                    <button class="btn btn-primary" id="addItemBtn">
-                        <i class="fas fa-plus"></i> إضافة صنف جديد
-                    </button>
-                </div>
-            </div>
-            
-            <div class="section-info">
-                <p>هنا يمكنك إدارة جميع أصناف القائمة. يمكنك الإضافة، التعديل، الحذف، وتغيير حالة الأصناف.</p>
-            </div>
-            
-            <div class="table-container">
-                <div class="table-responsive">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>الصورة</th>
-                                <th>الاسم</th>
-                                <th>الفئة</th>
-                                <th>السعر</th>
-                                <th>الحالة</th>
-                                <th>الإجراءات</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td colspan="6" class="text-center">
-                                    <p>جاري تحميل البيانات...</p>
-                                    <p><small>سيتم تحميل الأصناف قريباً</small></p>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `;
-    }
-    
-    // محتوى إدارة الفئات
-    getCategoriesContent() {
-        return `
-            <div class="content-header">
-                <h1><i class="fas fa-list"></i> إدارة الفئات</h1>
-                <div class="header-actions">
-                    <button class="btn btn-primary" id="addCategoryBtn">
-                        <i class="fas fa-plus"></i> إضافة فئة جديدة
-                    </button>
-                </div>
-            </div>
-            
-            <div class="section-info">
-                <p>هنا يمكنك إدارة فئات القائمة. الفئات تساعد في تنظيم الأصناف وتسهيل التصفح.</p>
-            </div>
-            
-            <div class="categories-grid">
-                <!-- سيتم ملؤه بالبيانات -->
-                <div class="category-card">
-                    <div class="category-placeholder">
-                        <i class="fas fa-list"></i>
-                        <p>جاري تحميل الفئات...</p>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-    
-    // إعداد أحداث الأقسام
-    setupSectionEvents(section) {
-        switch (section) {
-            case 'dashboard':
-                this.setupDashboardEvents();
-                break;
-            case 'items':
-                this.setupItemsEvents();
-                break;
-            case 'categories':
-                this.setupCategoriesEvents();
-                break;
-            case 'design':
-                this.setupDesignEvents();
-                break;
-            case 'settings':
-                this.setupSettingsEvents();
-                break;
-        }
-    }
-    
-    // إعداد أحداث لوحة التحكم
-    setupDashboardEvents() {
-        const refreshBtn = document.getElementById('refreshDashboardBtn');
-        if (refreshBtn) {
-            refreshBtn.addEventListener('click', () => this.refreshData());
-        }
-    }
-    
-    // إعداد أحداث الأصناف
-    setupItemsEvents() {
-        const addItemBtn = document.getElementById('addItemBtn');
-        if (addItemBtn) {
-            addItemBtn.addEventListener('click', () => this.showAddItemForm());
-        }
-    }
-    
-    // إعداد أحداث الفئات
-    setupCategoriesEvents() {
-        const addCategoryBtn = document.getElementById('addCategoryBtn');
-        if (addCategoryBtn) {
-            addCategoryBtn.addEventListener('click', () => this.showAddCategoryForm());
         }
     }
     
@@ -898,26 +661,19 @@ class AdminPanel {
     
     toggleSidebar() {
         const sidebar = document.getElementById('adminSidebar');
-        const content = document.querySelector('.admin-content');
-        
-        if (sidebar.classList.contains('collapsed')) {
-            sidebar.classList.remove('collapsed');
-            content.style.marginRight = '250px';
-        } else {
-            sidebar.classList.add('collapsed');
-            content.style.marginRight = '80px';
+        if (sidebar) {
+            sidebar.classList.toggle('collapsed');
+            this.isSidebarCollapsed = !this.isSidebarCollapsed;
         }
-        
-        this.isSidebarCollapsed = !this.isSidebarCollapsed;
     }
     
     refreshData() {
-        this.showMessage('معلومات', 'جاري تحديث البيانات...', 'info');
+        this.showInfo('جاري تحديث البيانات...');
         
         setTimeout(() => {
             this.updateStats();
             this.updateBadges();
-            this.showMessage('نجاح', 'تم تحديث البيانات بنجاح', 'success');
+            this.showSuccess('تم تحديث البيانات بنجاح');
         }, 1000);
     }
     
@@ -934,8 +690,7 @@ class AdminPanel {
     }
     
     showUserMenu() {
-        // سيتم تنفيذها لاحقاً
-        this.showMessage('معلومات', 'قائمة المستخدم - قيد التطوير', 'info');
+        this.showInfo('قائمة المستخدم - قيد التطوير');
     }
     
     handleLogout() {
@@ -951,12 +706,8 @@ class AdminPanel {
         }
     }
     
-    showAddItemForm() {
-        this.showMessage('معلومات', 'نموذج إضافة صنف جديد - قيد التطوير', 'info');
-    }
-    
-    showAddCategoryForm() {
-        this.showMessage('معلومات', 'نموذج إضافة فئة جديدة - قيد التطوير', 'info');
+    showSection(section) {
+        this.showInfo(`تحميل القسم: ${section} - قيد التطوير`);
     }
     
     // ========== وظائف الرسائل ==========
@@ -978,8 +729,19 @@ class AdminPanel {
         }
     }
     
+    showSuccess(message) {
+        this.showMessage('نجاح', message, 'success');
+    }
+    
+    showError(message) {
+        this.showMessage('خطأ', message, 'error');
+    }
+    
+    showInfo(message) {
+        this.showMessage('معلومات', message, 'info');
+    }
+    
     showMessage(title, text, type = 'info') {
-        // استخدام SweetAlert2 إذا متوفر
         if (window.Swal) {
             const icons = {
                 success: 'success',
@@ -996,31 +758,66 @@ class AdminPanel {
                 showConfirmButton: false
             });
         } else {
-            // بديل إذا لم يكن SweetAlert2 متوفراً
             alert(`${title}: ${text}`);
         }
     }
     
-    // واجهة وهمية (سيتم تطويرها)
+    // إنشاء واجهة (للمستقبل)
     createAdminInterface() {
         return Promise.resolve();
     }
-    
-    // محتوى وهمي (سيتم تطويره)
-    getDesignContent() {
-        return `<div class="alert alert-info">قسم التصميم قيد التطوير</div>`;
-    }
-    
-    getSettingsContent() {
-        return `<div class="alert alert-info">قسم الإعدادات قيد التطوير</div>`;
-    }
-    
-    setupDesignEvents() {}
-    setupSettingsEvents() {}
 }
 
 // ============================================
-// تهيئة التطبيق عند تحميل الصفحة
+// تهيئة لوحة التحكم
+// ============================================
+
+// دالة تهيئة لوحة التحكم
+async function initializeAdminPanel() {
+    try {
+        console.log('🚀 بدء تهيئة لوحة التحكم...');
+        
+        // التحقق من أننا في صفحة الإدارة
+        const loginContainer = document.getElementById('loginContainer');
+        const adminContainer = document.getElementById('adminContainer');
+        
+        if (!loginContainer && !adminContainer) {
+            console.log('⚠️ هذه ليست صفحة الإدارة');
+            return null;
+        }
+        
+        // انتظار الخدمات إذا لزم
+        try {
+            await ServiceManager.waitForAllServices(5000);
+        } catch (timeoutError) {
+            console.warn('⚠️ انتهت مهلة بعض الخدمات، المتابعة...');
+        }
+        
+        console.log('✅ الخدمات جاهزة، إنشاء لوحة التحكم...');
+        
+        // إنشاء لوحة التحكم
+        window.adminPanel = new AdminPanel();
+        
+        // بدء التهيئة
+        await window.adminPanel.init();
+        
+        console.log('✅ تم تحميل لوحة التحكم بنجاح');
+        
+        return window.adminPanel;
+        
+    } catch (error) {
+        console.error('❌ خطأ في تهيئة لوحة التحكم:', error);
+        
+        // عرض رسالة خطأ
+        const errorMessage = `فشل تحميل لوحة التحكم: ${error.message}`;
+        alert(errorMessage);
+        
+        return null;
+    }
+}
+
+// ============================================
+// التهيئة التلقائية
 // ============================================
 
 // تهيئة لوحة التحكم عند تحميل الصفحة
@@ -1028,19 +825,31 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('📄 تم تحميل DOM، جاري تهيئة لوحة التحكم...');
     
     // تأخير بسيط لضمان تحميل جميع السكريبتات
-    setTimeout(initializeAdminPanel, 1000);
+    setTimeout(async () => {
+        try {
+            await initializeAdminPanel();
+        } catch (error) {
+            console.error('❌ فشل غير متوقع:', error);
+        }
+    }, 1000);
 });
+
+// ============================================
+// التصدير
+// ============================================
 
 // تصدير للاستخدام العام
 window.initializeAdminPanel = initializeAdminPanel;
 window.AdminPanel = AdminPanel;
+window.ServiceManager = ServiceManager;
 
 // تصدير لتوافق الوحدات
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         AdminPanel,
-        initializeAdminPanel
+        initializeAdminPanel,
+        ServiceManager
     };
 }
 
-console.log('✅ تم تحميل ملف لوحة التحكم');
+console.log('✅ تم تحميل نظام لوحة التحكم');
