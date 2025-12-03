@@ -5,20 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>لوحة التحكم - مينو الكافيه</title>
     
-    <!-- Stylesheets -->
-    <link rel="stylesheet" href="css/admin.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- خط Tajawal العربي -->
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    <!-- أنماطنا -->
+    <link rel="stylesheet" href="css/admin.css">
     
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="../client/images/favicon.ico">
-    
-    <!-- External Libraries -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
 </head>
 <body>
-    <!-- Login Container -->
+    <!-- حاوية تسجيل الدخول -->
     <div class="login-container" id="loginContainer">
         <div class="login-box">
             <div class="logo">
@@ -30,12 +33,12 @@
             <form id="loginForm">
                 <div class="input-group">
                     <i class="fas fa-user"></i>
-                    <input type="text" id="username" placeholder="اسم المستخدم" required>
+                    <input type="text" id="username" placeholder="اسم المستخدم" required value="admin">
                 </div>
                 
                 <div class="input-group">
                     <i class="fas fa-lock"></i>
-                    <input type="password" id="password" placeholder="كلمة المرور" required>
+                    <input type="password" id="password" placeholder="كلمة المرور" required value="admin123">
                     <button type="button" class="show-password" id="showPasswordBtn">
                         <i class="fas fa-eye"></i>
                     </button>
@@ -43,10 +46,9 @@
                 
                 <div class="remember-forgot">
                     <label class="remember-me">
-                        <input type="checkbox" id="rememberMe">
+                        <input type="checkbox" id="rememberMe" checked>
                         <span>تذكرني</span>
                     </label>
-                    <a href="#" class="forgot-password" id="forgotPasswordBtn">نسيت كلمة المرور؟</a>
                 </div>
                 
                 <button type="submit" class="login-btn">
@@ -55,28 +57,98 @@
                 
                 <div class="login-footer">
                     <p>بيانات الدخول الافتراضية:</p>
-                    <p><strong>اسم المستخدم:</strong> admin | <strong>كلمة المرور:</strong> admin123</p>
+                    <p><strong>admin</strong> / <strong>admin123</strong></p>
                 </div>
             </form>
             
             <div class="security-notice">
                 <i class="fas fa-shield-alt"></i>
-                <p>لأغراض الاختبار فقط - يرجى تغيير كلمة المرور فوراً</p>
+                <p>لتجربة النظام فقط - يرجى تغيير كلمة المرور في الإنتاج</p>
             </div>
         </div>
     </div>
 
-    <!-- Admin Container -->
+    <!-- حاوية لوحة التحكم -->
     <div class="admin-container" id="adminContainer" style="display: none;">
         <!-- سيتم ملؤه عبر JavaScript -->
     </div>
 
-    <!-- JavaScript Files -->
-<!-- تحديث ترتيب السكريبتات -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../shared/config/supabase-config.js"></script>
-<script src="../shared/config/supabase-storage.js"></script>
-<script src="../shared/services/database-service.js"></script>
-<script src="js/admin.js"></script>
+    <!-- مكتبة Supabase JS (يجب أن تكون أولاً) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- ملفاتنا (بهذا الترتيب المهم) -->
+    <script src="../shared/config/supabase-config.js"></script>
+    <script src="../shared/config/supabase-storage.js"></script>
+    <script src="../shared/services/database-service.js"></script>
+    <script src="js/admin.js"></script>
+    
+    <!-- رسالة تحميل -->
+    <div id="globalLoading" style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, #2C3E50, #4A6491);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 999999;
+        color: white;
+        font-family: 'Tajawal', sans-serif;
+    ">
+        <div style="text-align: center;">
+            <div style="
+                width: 80px;
+                height: 80px;
+                border: 4px solid rgba(255,255,255,0.3);
+                border-top: 4px solid white;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+                margin: 0 auto 20px;
+            "></div>
+            <h2 style="margin-bottom: 10px;">جاري تحميل لوحة التحكم...</h2>
+            <p id="loadingStatus" style="opacity: 0.8;">تهيئة النظام</p>
+            <style>
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            </style>
+        </div>
+    </div>
+    
+    <script>
+        // تحديث حالة التحميل
+        function updateLoadingStatus(text) {
+            const statusEl = document.getElementById('loadingStatus');
+            if (statusEl) statusEl.textContent = text;
+        }
+        
+        // إخفاء شاشة التحميل
+        function hideLoadingScreen() {
+            const loadingScreen = document.getElementById('globalLoading');
+            if (loadingScreen) {
+                loadingScreen.style.opacity = '0';
+                setTimeout(() => {
+                    if (loadingScreen.parentElement) {
+                        loadingScreen.remove();
+                    }
+                }, 300);
+            }
+        }
+        
+        // تحديثات حالة التحميل
+        updateLoadingStatus('جاري تحميل المكتبات...');
+        
+        // عندما تكون جميع الخدمات جاهزة
+        window.addEventListener('allServicesReady', () => {
+            updateLoadingStatus('جميع الخدمات جاهزة!');
+            setTimeout(hideLoadingScreen, 1000);
+        });
+        
+        // إخفاء شاشة التحميل بعد 10 ثواني كحد أقصى
+        setTimeout(hideLoadingScreen, 10000);
+    </script>
 </body>
 </html>
