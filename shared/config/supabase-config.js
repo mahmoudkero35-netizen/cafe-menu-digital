@@ -10,7 +10,7 @@ const SUPABASE_CONFIG = {
     secretKey: 'sb_secret_H-hZxW8tigXjlfcq8Q5K5g_pbQ7BLjn'
 };
 
-// التأكد من أن supabase-js محمل
+// تأكد من تحميل Supabase
 async function waitForSupabase() {
     let attempts = 0;
     const maxAttempts = 10;
@@ -28,67 +28,44 @@ async function waitForSupabase() {
     return window.supabase;
 }
 
-// تهيئة عميل Supabase للعميل (public)
+// تهيئة العميل الرئيسي
 async function initializeSupabase() {
     try {
         console.log('🚀 بدء تهيئة Supabase...');
         
-        // الانتظار حتى يتم تحميل مكتبة supabase-js
         const supabaseLib = await waitForSupabase();
         
-        // إنشاء العميل
+        // عميل للقراءة فقط (للعميل)
         const supabaseClient = supabaseLib.createClient(
             SUPABASE_CONFIG.url, 
             SUPABASE_CONFIG.anonKey, 
             {
-                auth: {
-                    autoRefreshToken: true,
-                    persistSession: true,
-                    detectSessionInUrl: false,
-                    storage: localStorage,
-                    storageKey: 'supabase.auth.token'
-                },
-                global: {
-                    headers: {
-                        'X-Client-Info': 'cafe-menu-app/1.0.0'
-                    }
-                },
-                db: {
-                    schema: 'public'
-                }
+                auth: { persistSession: false },
+                global: { headers: { 'X-Client-Info': 'cafe-menu-app/client' } }
             }
         );
         
-        // تهيئة عميل الإدارة (للبيئة الآمنة فقط)
+        // عميل للإدارة (للأدمن)
         const supabaseAdmin = supabaseLib.createClient(
             SUPABASE_CONFIG.url,
             SUPABASE_CONFIG.serviceKey,
             {
-                auth: {
-                    autoRefreshToken: true,
-                    persistSession: false
-                }
+                auth: { persistSession: false },
+                global: { headers: { 'X-Client-Info': 'cafe-menu-app/admin' } }
             }
         );
         
-        // تصدير المتغيرات للاستخدام العام
+        // حفظ للاستخدام العام
         window.supabaseClient = supabaseClient;
         window.supabaseAdmin = supabaseAdmin;
         window.SUPABASE_CONFIG = SUPABASE_CONFIG;
         
-        console.log('✅ Supabase configured successfully');
-        console.log('📊 Project URL:', SUPABASE_CONFIG.url);
-        console.log('🔐 Anon Key:', SUPABASE_CONFIG.anonKey.substring(0, 20) + '...');
-        console.log('🕐 Configuration time:', new Date().toISOString());
+        console.log('✅ Supabase initialized successfully');
         
-        // إعلام التطبيق بأن Supabase جاهز
+        // إرسال إشارة أن Supabase جاهز
         window.dispatchEvent(new CustomEvent('supabaseReady'));
         
-        return {
-            client: supabaseClient,
-            admin: supabaseAdmin,
-            config: SUPABASE_CONFIG
-        };
+        return { client: supabaseClient, admin: supabaseAdmin };
         
     } catch (error) {
         console.error('❌ خطأ في تهيئة Supabase:', error);
@@ -96,104 +73,14 @@ async function initializeSupabase() {
     }
 }
 
-// دالة للتحقق من اتصال Supabase
-async function checkSupabaseConnection() {
-    try {
-        if (!window.supabaseClient) {
-            throw new Error('عميل Supabase غير مهيئ');
-        }
-        
-        const { data, error } = await window.supabaseClient
-            .from('categories')
-            .select('id')
-            .limit(1);
-        
-        if (error) {
-            console.warn('Supabase connection warning:', error.message);
-            return {
-                connected: false,
-                error: error.message,
-                timestamp: new Date().toISOString()
-            };
-        }
-        
-        return {
-            connected: true,
-            timestamp: new Date().toISOString(),
-            url: SUPABASE_CONFIG.url
-        };
-    } catch (error) {
-        console.error('Supabase connection error:', error);
-        return {
-            connected: false,
-            error: error.message,
-            timestamp: new Date().toISOString()
-        };
-    }
-}
+// تصدير للاستخدام
+window.SUPABASE_CONFIG = SUPABASE_CONFIG;
+window.initializeSupabase = initializeSupabase;
 
-// دالة للحصول على حالة التخزين
-function getStorageStatus() {
-    try {
-        const hasLocalStorage = typeof localStorage !== 'undefined';
-        const hasSessionStorage = typeof sessionStorage !== 'undefined';
-        
-        return {
-            localStorage: hasLocalStorage,
-            sessionStorage: hasSessionStorage,
-            quota: hasLocalStorage ? navigator.storage?.estimate?.() : null
-        };
-    } catch (error) {
-        return {
-            localStorage: false,
-            sessionStorage: false,
-            error: error.message
-        };
-    }
-}
-
-// دالة لعرض تحذير الاتصال
-window.showConnectionWarning = function(message) {
-    console.warn('⚠️ تحذير اتصال:', message);
-    
-    // يمكن إضافة عرض رسالة في واجهة المستخدم هنا
-    if (typeof Swal !== 'undefined') {
-        Swal.fire({
-            icon: 'warning',
-            title: 'تحذير اتصال',
-            text: message,
-            timer: 5000,
-            showConfirmButton: false
-        });
-    }
-};
-
-// بدء التهيئة تلقائياً
-window.addEventListener('DOMContentLoaded', async () => {
-    try {
-        console.log('📄 DOM جاهز، جاري تهيئة Supabase...');
-        await initializeSupabase();
-        
-        // التحقق من الاتصال
-        const connection = await checkSupabaseConnection();
-        if (connection.connected) {
-            console.log('✅ Supabase connection established');
-        } else {
-            console.warn('⚠️ Supabase connection issue:', connection.error);
-            window.showConnectionWarning(connection.error);
-        }
-    } catch (error) {
-        console.error('❌ فشل تهيئة Supabase:', error);
-        window.showConnectionWarning('فشل الاتصال بقاعدة البيانات');
-    }
-});
-
-// تصدير للاستخدام في الوحدات النمطية
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {
-        SUPABASE_CONFIG,
-        initializeSupabase,
-        checkSupabaseConnection,
-        getStorageStatus
-    };
+// التهيئة التلقائية
+if (typeof window !== 'undefined') {
+    window.addEventListener('DOMContentLoaded', () => {
+        console.log('📄 DOM loaded, initializing Supabase...');
+        initializeSupabase().catch(console.error);
+    });
 }
